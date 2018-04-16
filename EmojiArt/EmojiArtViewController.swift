@@ -7,23 +7,78 @@
 //
 
 import UIKit
+//UICollectionViewDelegateFlowLayout
+class EmojiArtViewController: UIViewController, UIDropInteractionDelegate, UIScrollViewDelegate, UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDragDelegate, UICollectionViewDropDelegate, UICollectionViewDelegateFlowLayout{
 
-class EmojiArtViewController: UIViewController, UIDropInteractionDelegate, UIScrollViewDelegate, UICollectionViewDataSource, UICollectionViewDelegate, UIDragInteractionDelegate {
-    
-
-    
+    //Start --- Collection View Section
     @IBOutlet weak var emojiArtCollectionView: UICollectionView!{
         didSet{
             emojiArtCollectionView.dataSource = self
             emojiArtCollectionView.delegate = self
-            emojiArtCollectionView.addInteraction(UIDragInteraction(delegate: self))
+            emojiArtCollectionView.dragDelegate = self
+            emojiArtCollectionView.dropDelegate = self
         }
     }
     
-    func dragInteraction(_ interaction: UIDragInteraction, itemsForBeginning session: UIDragSession) -> [UIDragItem] {
-        <#code#>
+    func collectionView(_ collectionView: UICollectionView, itemsForBeginning session: UIDragSession, at indexPath: IndexPath) -> [UIDragItem] {
+        session.localContext = collectionView
+        return dragItems(at: indexPath)
+    }
+
+    func dragItems(at indexPath: IndexPath) -> [UIDragItem]{
+        if let atrributedString = (emojiArtCollectionView.cellForItem(at: indexPath) as? emojiArtCollectionViewCell)?.label.attributedText{
+            let dragItem = UIDragItem(itemProvider: NSItemProvider(object: atrributedString))
+            dragItem.localObject = atrributedString
+            return [dragItem]
+        }else{
+            return []
+        }
     }
     
+    func collectionView(_ collectionView: UICollectionView, itemsForAddingTo session: UIDragSession, at indexPath: IndexPath, point: CGPoint) -> [UIDragItem] {
+        return dragItems(at: indexPath)
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, canHandle session: UIDropSession) -> Bool {
+        return session.canLoadObjects(ofClass: NSAttributedString.self)
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, dropSessionDidUpdate session: UIDropSession, withDestinationIndexPath destinationIndexPath: IndexPath?) -> UICollectionViewDropProposal {
+        let isSelf = (session.localDragSession?.localContext as? UICollectionView) == collectionView
+        return UICollectionViewDropProposal(operation: isSelf ? .move : .copy, intent: .insertAtDestinationIndexPath)
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, performDropWith coordinator: UICollectionViewDropCoordinator) {
+        let destinationIndexPath = coordinator.destinationIndexPath ?? Constants.defualtDestinationIndexPathForEmojiArtCollectionView
+        for item in coordinator.items{
+            if let sourceIndexPath = item.sourceIndexPath{
+                if let atrributedString = item.dragItem.localObject as? NSAttributedString{
+                    collectionView.performBatchUpdates({
+                        emojis.remove(at: sourceIndexPath.item)
+                        emojis.insert(atrributedString.string, at: destinationIndexPath.item)
+                        emojiArtCollectionView.deleteItems(at: [sourceIndexPath])
+                        emojiArtCollectionView.insertItems(at: [destinationIndexPath])
+                    })
+                    coordinator.drop(item.dragItem, toItemAt: destinationIndexPath) //for some kind of animation
+                }
+            }else{ //incase come from outside my collectionView
+                let placeholderContext  = coordinator.drop(item.dragItem, to: UICollectionViewDropPlaceholder(insertionIndexPath: destinationIndexPath, reuseIdentifier: "DropPlaceholderCell"))
+                item.dragItem.itemProvider.loadObject(ofClass: NSAttributedString.self){(provider, error) in
+                    DispatchQueue.main.async{
+                        if let attributedString = provider as? NSAttributedString{
+                            placeholderContext.commitInsertion(dataSourceUpdates: { insertionIndexPath in
+                                if insertionIndexPath.item == destinationIndexPath.item{
+                                    self.emojis.insert(attributedString.string, at: insertionIndexPath.item)
+                                }
+                            })
+                        }else{
+                            placeholderContext.deletePlaceholder()
+                        }
+                    }
+                }
+            }
+        }
+    }
     
     //Start --- Collection View Section
     private var emojis = "😄😍😎🤩🐶🐻🐸🙈🍏🍇🍒⚽️🎱🏉🚗🚎🏎🖥💻⌨️❤️🧡💜💚".map {String($0)}
@@ -61,8 +116,8 @@ class EmojiArtViewController: UIViewController, UIDropInteractionDelegate, UIScr
     
     //Start --- Scroll View Section
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
-        emojiArtScrollViewWidth.constant = emojiArtScrollView.contentSize.width
-        emojiArtScrollViewHeight.constant = emojiArtScrollView.contentSize.height
+//        emojiArtScrollViewWidth.constant = emojiArtScrollView.contentSize.width
+//        emojiArtScrollViewHeight.constant = emojiArtScrollView.contentSize.height
     }
     
     func viewForZooming(in scrollView: UIScrollView) -> UIView? {
@@ -78,13 +133,14 @@ class EmojiArtViewController: UIViewController, UIDropInteractionDelegate, UIScr
             let size = newValue?.size ?? CGSize.zero
             emojiArtView.frame = CGRect(origin: CGPoint.zero, size: size)
             emojiArtScrollView?.contentSize = size
-            emojiArtScrollViewWidth?.constant = size.width
-            emojiArtScrollViewHeight?.constant = size.height
+//            emojiArtScrollViewWidth?.constant = size.width
+//            emojiArtScrollViewHeight?.constant = size.height
             if let dropZone = self.dropZone, size.width>0 , size.height>0{
                 emojiArtScrollView?.zoomScale = max(dropZone.bounds.size.width/size.width, dropZone.bounds.size.height/size.height)
             }
         }
     }
+    
     //End --- Scroll View Section
 
     //Start --- Drop Interaction Section
@@ -131,6 +187,7 @@ class EmojiArtViewController: UIViewController, UIDropInteractionDelegate, UIScr
         static var MinimumZoomScale: CGFloat = 0.25
         static var MaximumZoomScale: CGFloat = 5
         static var EmojiFontSize: CGFloat = 64.0
+        static var defualtDestinationIndexPathForEmojiArtCollectionView: IndexPath = IndexPath(item: 0, section: 0)
     }
   
 }
