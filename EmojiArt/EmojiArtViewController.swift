@@ -8,8 +8,44 @@
 
 import UIKit
 
-class EmojiArtViewController: UIViewController, UIDropInteractionDelegate, UIScrollViewDelegate {
+class EmojiArtViewController: UIViewController, UIDropInteractionDelegate, UIScrollViewDelegate, UICollectionViewDataSource, UICollectionViewDelegate, UIDragInteractionDelegate {
+    
 
+    
+    @IBOutlet weak var emojiArtCollectionView: UICollectionView!{
+        didSet{
+            emojiArtCollectionView.dataSource = self
+            emojiArtCollectionView.delegate = self
+            emojiArtCollectionView.addInteraction(UIDragInteraction(delegate: self))
+        }
+    }
+    
+    func dragInteraction(_ interaction: UIDragInteraction, itemsForBeginning session: UIDragSession) -> [UIDragItem] {
+        <#code#>
+    }
+    
+    
+    //Start --- Collection View Section
+    private var emojis = "😄😍😎🤩🐶🐻🐸🙈🍏🍇🍒⚽️🎱🏉🚗🚎🏎🖥💻⌨️❤️🧡💜💚".map {String($0)}
+    
+    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+        return emojis.count
+    }
+    
+    private var font: UIFont{
+        return UIFontMetrics(forTextStyle: .body).scaledFont(for: UIFont.preferredFont(forTextStyle: .body).withSize(Constants.EmojiFontSize))
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "emojiArtCollectionCell", for: indexPath)
+        if let emojiCell = cell as? emojiArtCollectionViewCell{
+            let attributedText = NSAttributedString(string: emojis[indexPath.item], attributes: [.font: font])
+            emojiCell.label?.attributedText = attributedText
+        }
+        
+        return cell
+    }
+    
     @IBOutlet weak var emojiArtScrollViewWidth: NSLayoutConstraint!
     @IBOutlet weak var emojiArtScrollViewHeight: NSLayoutConstraint!
     @IBOutlet weak var emojiArtScrollView: UIScrollView!{
@@ -20,7 +56,10 @@ class EmojiArtViewController: UIViewController, UIDropInteractionDelegate, UIScr
             emojiArtScrollView.addSubview(emojiArtView)
         }
     }
+    //End --- Collection View Section
+
     
+    //Start --- Scroll View Section
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
         emojiArtScrollViewWidth.constant = emojiArtScrollView.contentSize.width
         emojiArtScrollViewHeight.constant = emojiArtScrollView.contentSize.height
@@ -46,7 +85,9 @@ class EmojiArtViewController: UIViewController, UIDropInteractionDelegate, UIScr
             }
         }
     }
-    
+    //End --- Scroll View Section
+
+    //Start --- Drop Interaction Section
     var emojiArtView = EmojiArtView()
     @IBOutlet var dropZone: UIView! {
         didSet{
@@ -83,10 +124,13 @@ class EmojiArtViewController: UIViewController, UIDropInteractionDelegate, UIScr
             }
         }
     }
-    
+    //End --- Drop Interaction Section
+
+    //Constants
     private struct Constants{
         static var MinimumZoomScale: CGFloat = 0.25
         static var MaximumZoomScale: CGFloat = 5
+        static var EmojiFontSize: CGFloat = 64.0
     }
   
 }
